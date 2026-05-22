@@ -53,19 +53,66 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.scale
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import java.io.File
 
+
+fun buildTextWithLinks(text: String): AnnotatedString {
+    val regex = Regex("(https?://[\\w./?=:&%-]+)")
+
+    return buildAnnotatedString {
+        var lastIndex = 0
+
+        regex.findAll(text).forEach { match ->
+            val start = match.range.first
+            val end = match.range.last + 1
+
+            append(text.substring(lastIndex, start))
+
+            withLink(
+                LinkAnnotation.Url(
+                    url = match.value,
+                    styles = TextLinkStyles(
+                        style = SpanStyle(
+                            color = Color(0xFF64B5F6),
+                            textDecoration = TextDecoration.Underline
+                        )
+                    )
+                )
+            ) {
+                append(match.value)
+            }
+
+            lastIndex = end
+        }
+
+        if (lastIndex < text.length) {
+            append(text.substring(lastIndex))
+        }
+    }
+}
 
 @Composable
 fun TodoBadge(modifier: Modifier = Modifier) {
@@ -88,23 +135,20 @@ fun TodoBadge(modifier: Modifier = Modifier) {
 
 @Composable
 fun ChatAvatar(
-    filename: String,
     modifier: Modifier = Modifier,
+    chat: Chat,
+    imagePath: String = "",
     size: Dp = 48.dp,
     loading: Boolean = false,
-    todo: Boolean = false
 ) {
+    val context = LocalContext.current
+
     Box {
         Surface(
             modifier = modifier.size(size),
             shape = CircleShape,
-            color = Color.Gray,
+            color = Color.Transparent,
         ) {
-            val bitmap = loadBitmapFromFile(
-                context = LocalContext.current,
-                filename = filename
-            )?.asImageBitmap()
-
             Column(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.Center,
@@ -113,20 +157,50 @@ fun ChatAvatar(
                 if (loading) {
                     CircularProgressIndicator()
                 }
-                if (bitmap != null) Image(
-                    bitmap = bitmap,
+                if (imagePath.isNotEmpty()) AsyncImage(
+                    model = File(context.filesDir, imagePath),
                     modifier = Modifier.size(size),
                     contentDescription = "Avatar",
                     contentScale = ContentScale.Crop,
                 )
+                else if (chat.imagePath.isNotEmpty()) AsyncImage(
+                    model = File(context.filesDir, chat.imagePath),
+                    modifier = Modifier.size(size),
+                    contentDescription = "Avatar",
+                    contentScale = ContentScale.Crop,
+                )
+                else Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .drawBehind {
+                            drawRect(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color(0xFF202131),
+                                        Color(0xFF191A21)
+                                    ),
+                                    start = Offset(0f, 0f),
+                                    end = Offset(size.value, size.value)
+                                )
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (chat.name.isNotEmpty()) chat.name[0].toString().uppercase() else "",
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Thin
+                    )
+                }
             }
         }
 
-        if (todo) {
+        if (chat.type == ChatTypes.TODO) {
             TodoBadge(
                 modifier = Modifier
-                    .align(Alignment.TopStart) // Позиционируем сверху слева
-                    .offset(x = (-2).dp, y = (-2).dp) // Небольшой отступ для лучшего вида
+                    .align(Alignment.TopStart)
+                    .offset(x = (-2).dp, y = (-2).dp)
             )
         }
     }
@@ -181,6 +255,9 @@ fun MessageMenu(
 }
 
 
+
+
+
 @Composable
 fun MessageBox(
     text: String,
@@ -195,7 +272,7 @@ fun MessageBox(
     val context = LocalContext.current
 
     Surface(
-        shape = RoundedCornerShape(8.dp, 8.dp, 3.dp, 8.dp), // Радиус скругления
+        shape = RoundedCornerShape(14.dp, 14.dp, 5.dp, 14.dp), // Радиус скругления
         color = MaterialTheme.colorScheme.surfaceContainer, // Цвет фона
         modifier = modifier.padding(bottom = 8.dp).then(
             if (inSearch) Modifier.clickable(onClick = onTap)
@@ -212,7 +289,11 @@ fun MessageBox(
             horizontalAlignment = Alignment.End
         ) {
             Box {
-                Text(text = text)
+                Text(
+                    text = remember(text) {
+                        buildTextWithLinks(text)
+                    }
+                )
             }
             Box {
                 Text(text = time, fontWeight = FontWeight.Thin, fontSize = 12.sp)
@@ -281,7 +362,7 @@ fun ChatItem(
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ChatAvatar(filename = chat.imagePath, size = 60.dp, todo = chat.type == ChatTypes.TODO)
+            ChatAvatar(chat = chat, size = 52.dp)
             Column(modifier = Modifier.padding(start = 10.dp)) {
                 Text(
                     chat.name,
@@ -457,7 +538,7 @@ fun ExpandingBottomBar(
 @Composable
 fun topBarColors(): TopAppBarColors {
     return TopAppBarDefaults.topAppBarColors(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.66f),
         titleContentColor = MaterialTheme.colorScheme.onSurface,
     )
 }

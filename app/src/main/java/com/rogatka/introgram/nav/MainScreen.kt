@@ -1,35 +1,44 @@
 package com.rogatka.introgram.nav
 
+import android.graphics.BitmapFactory
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocalFlorist
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.RemoveRedEye
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
@@ -38,10 +47,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import com.rogatka.introgram.modals.ConfirmFolderDeleteModal
 import com.rogatka.introgram.modals.NewFolderModal
 import com.rogatka.introgram.Chat
@@ -53,14 +64,21 @@ import com.rogatka.introgram.TaskStats
 import com.rogatka.introgram.addFolder
 import com.rogatka.introgram.countStats
 import com.rogatka.introgram.deleteFolder
+import com.rogatka.introgram.deleteImageFile
 import com.rogatka.introgram.getAllChats
 import com.rogatka.introgram.getAllFolders
 import com.rogatka.introgram.getSettings
+import com.rogatka.introgram.loadBitmapFromFile
 import com.rogatka.introgram.modals.AboutModal
 import com.rogatka.introgram.moveChatToFolder
 import com.rogatka.introgram.randomUID
+import com.rogatka.introgram.saveBitmapToFile
 import com.rogatka.introgram.setSetting
 import com.rogatka.introgram.topBarColors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 
 @Composable
@@ -70,8 +88,10 @@ fun TopBarFolder(
     onClick: (() -> Unit),
     content: @Composable (RowScope.() -> Unit)
 ) {
+    val isDark = isSystemInDarkTheme()
+    val borderColorStatic = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface;
     val borderColor by animateColorAsState(
-        targetValue = if (selected) Color.White else Color.Transparent, // Прозрачный, когда не выбрано
+        targetValue = if (selected) borderColorStatic else Color.Transparent, // Прозрачный, когда не выбрано
         animationSpec = tween(durationMillis = 300), // Длительность анимации в мс
         label = "BorderColorAnimation"
     )
@@ -107,9 +127,25 @@ fun MainScreen(navController: NavController, folder: Int = 0) {
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     val folders: List<Folder> = remember { getAllFolders(context) }
+    val foldersListState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val settings = getSettings(context)
 
 
     var showAllChatsFolder by remember {mutableStateOf(getSettings(context).showAllFolders)}
+
+    fun scrollToFolder(folderIndex: Int) {
+        coroutineScope.launch {
+            val layoutInfo = foldersListState.layoutInfo
+            val viewportWidth = layoutInfo.viewportEndOffset
+
+            val itemWidth = 120
+
+            val offset = viewportWidth / 2 - itemWidth / 2
+
+            foldersListState.animateScrollToItem(folderIndex, -offset)
+        }
+    }
 
     val allFolderIds = remember {
         if (showAllChatsFolder)
@@ -134,6 +170,46 @@ fun MainScreen(navController: NavController, folder: Int = 0) {
             )
         )
     }
+
+    val backgroundPath = remember { mutableStateOf(settings.mainBackgroundPath ?: "") }
+    var bgLoading by remember { mutableStateOf(false) }
+
+    val pickBackground =
+        rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            if (uri != null) {
+                bgLoading = true
+                if (backgroundPath.value?.isNotEmpty() ?: false) {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        deleteImageFile(context = context, filename = backgroundPath.value)
+                    }
+                    backgroundPath.value = ""
+                }
+                coroutineScope.launch(Dispatchers.IO) {
+                    try {
+                        // 2. Загрузка Bitmap с автоматическим закрытием потока
+                        val bitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
+                            BitmapFactory.decodeStream(stream)
+                        } ?: return@launch
+
+                        // 3. Сохранение файла
+                        val imageId = randomUID()
+                        val newFilename = "${imageId}.bg.png"
+
+                        if (saveBitmapToFile(context, bitmap, newFilename).isNotEmpty()) {
+                            withContext(Dispatchers.Main) {
+                                backgroundPath.value = newFilename
+                                bgLoading = false
+                                setSetting(context) { it.apply { this.mainBackgroundPath = newFilename } }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("PhotoPicker", "Error processing image", e)
+                    }
+                }
+            } else {
+                Log.d("PhotoPicker", "No media selected")
+            }
+        }
 
     var folderId by rememberSaveable { mutableIntStateOf(allFolderIds[folderIndex]) }
 
@@ -191,34 +267,22 @@ fun MainScreen(navController: NavController, folder: Int = 0) {
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragEnd = {
-                        Log.e("Swipe", "Swipe! --------------------------------------------------------")
-                        Log.e("Swipe", "folderId, folderIndex before swipe: $folderId, $folderIndex")
-                        Log.e("Swipe", "allFolderIds before swipe: ${allFolderIds.joinToString(", ")}")
-
-
                         if (totalDragX > 100) {
-                            Log.e("Swipe", " ### Swiping right ->")
 
                             if (folderIndex > 0) {
-                                Log.e("Swipe", "folderIndex ($folderIndex) > 0")
                                 folderIndex--
                             }
                         } else if (totalDragX < -100) {
-                            Log.e("Swipe", " ### Swiping left <-")
 
                             if (folderIndex < allFolderIds.lastIndex) {
-                                Log.e("Swipe", "folderIndex ($folderIndex) < allFolderIds.lastIndex (${allFolderIds.lastIndex})")
                                 folderIndex++
                             }
                         }
 
-                        Log.e("Swipe", "Setting folderId to allFolderIds[folderIndex ($folderIndex)] (${allFolderIds[folderIndex]})...")
                         folderId = allFolderIds[folderIndex]
                         totalDragX = 0f
 
-
-                        Log.e("Swipe", "folderId, folderIndex after swipe: $folderId, $folderIndex")
-                        Log.e("Swipe", "allFolderIds after swipe: ${allFolderIds.joinToString(", ")}")
+                        scrollToFolder(folderIndex)
                     },
                     onDrag = { change, dragAmount ->
                         totalDragX += dragAmount.x
@@ -236,12 +300,30 @@ fun MainScreen(navController: NavController, folder: Int = 0) {
             )
         },
         topBar = {
+
+        }
+    ) { padding ->
+        if (backgroundPath.value.isNotEmpty()) {
+            AsyncImage(
+                model = File(context.filesDir, backgroundPath.value),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        if (backgroundPath.value.isNotEmpty())
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color(0x55000000))
+            ) {}
+
+        Column(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 CenterAlignedTopAppBar(
                     colors = topBarColors(),
                     title = {
                         Text(
-                            if (shareMode) "Куда переслать?" else "Чаты",
+                            if (shareMode) "Куда переслать?" else "Самописец",
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -281,44 +363,54 @@ fun MainScreen(navController: NavController, folder: Int = 0) {
                                 expanded = false
                                 showAllChatsFolder = !showAllChatsFolder
                                 setSetting(context) { it.apply { this.showAllFolders = showAllChatsFolder } }
-                                Log.e("Click", "Clicked! --------------------------------------------------------")
                                 if (!showAllChatsFolder) {
-                                    Log.e("Status", " ### Not show all chats folder")
-
-                                    Log.e("allFolderIds", "allFolderIds at start: ${allFolderIds.joinToString(", ")}")
                                     allFolderIds.remove(0)
-                                    Log.e("allFolderIds", "allFolderIds after zero deletion: ${allFolderIds.joinToString(", ")}")
 
                                     if (folderId == 0) {
-                                        Log.e("Status", "Folder id == 0!")
                                         if (folders.isNotEmpty()) {
-                                            Log.e("Status", "Folders is not empty!")
-                                            Log.e("Status", "folderId, folderIndex before reassignment: $folderId, $folderIndex")
                                             folderId = folders[0].id
                                             folderIndex = allFolderIds.indexOf(folderId)
-                                            Log.e("Status", "folderId, folderIndex after reassignment: $folderId, $folderIndex")
                                         } else {
-                                            Log.e("Status", "Folders IS empty!")
-                                            Log.e("Status", "folderId, folderIndex before reassignment: $folderId, $folderIndex")
                                             folderId = -1
                                             folderIndex = 0
-                                            Log.e("Status", "folderId, folderIndex after reassignment: $folderId, $folderIndex")
                                         }
                                     }
                                 } else {
-                                    Log.e("Status", " ### Show all chats folder")
-                                    Log.e("allFolderIds", "allFolderIds at start: ${allFolderIds.joinToString(", ")}")
                                     if (!allFolderIds.contains(0)) {
-                                        Log.e("allFolderIds", "not contains zero, adding...")
                                         allFolderIds.add(1, 0)
                                     }
-                                    Log.e("allFolderIds", "allFolderIds after the `if`: ${allFolderIds.joinToString(", ")}")
 
                                 }
-                                Log.e("Status", "folderId, folderIndex before main reassignment: $folderId, $folderIndex")
                                 folderIndex = allFolderIds.indexOf(folderId)
-                                Log.e("Status", "folderId, folderIndex after main reassignment: $folderId, $folderIndex")
                             })
+
+                            DropdownMenuItem(text = { Text(if (backgroundPath.value.isEmpty()) "Установить фон" else "Изменить фон") }, leadingIcon = {
+                                Icon(
+                                    Icons.Default.LocalFlorist, contentDescription = "Фон"
+                                )
+                            }, onClick = {
+                                expanded = false
+                                pickBackground.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            })
+
+
+                            if (backgroundPath.value.isNotEmpty())
+                                DropdownMenuItem(text = { Text("Убрать фон") }, leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Close, contentDescription = "Фон"
+                                    )
+                                }, onClick = {
+                                    expanded = false
+
+                                    coroutineScope.launch(Dispatchers.IO) {
+                                        val oldPath = backgroundPath.value
+
+                                        backgroundPath.value = ""
+
+                                        deleteImageFile(context, oldPath)
+                                    }
+                                    setSetting(context) {it.apply { this.mainBackgroundPath = null }}
+                                })
 
                             HorizontalDivider()
                             DropdownMenuItem(text = { Text("О программе") }, leadingIcon = {
@@ -341,94 +433,108 @@ fun MainScreen(navController: NavController, folder: Int = 0) {
                     },
                     scrollBehavior = scrollBehavior
                 )
-                Row(
+                LazyRow(
+                    state = foldersListState,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
                         .background(topBarColors().containerColor)
                 ) {
-
-
-                    TopBarFolder(selected = folderId ==  -1, color = Color(0x22FFFFFF), onClick = {
-                        folderId = -1
-                        folderIndex = allFolderIds.indexOf(folderId)
-                    }) {
-                        Icon(Icons.Filled.Checklist, contentDescription = "1", modifier = Modifier.size(24.dp))
+                    item {
+                        TopBarFolder(selected = folderId ==  -1, color = Color(0x22FFFFFF), onClick = {
+                            folderId = -1
+                            folderIndex = allFolderIds.indexOf(folderId)
+                            scrollToFolder(folderIndex)
+                        }) {
+                            Icon(Icons.Filled.Checklist, contentDescription = "1", modifier = Modifier.size(24.dp))
+                        }
                     }
 
-                    if (showAllChatsFolder) TopBarFolder(selected = folderId ==  0, onClick = {
-                        folderId = 0
-                        folderIndex = allFolderIds.indexOf(folderId)
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "1", modifier = Modifier.size(16.dp))
-                        Text("Все чаты", modifier = Modifier.padding(start = 12.dp))
+                    item {
+                        if (showAllChatsFolder) TopBarFolder(selected = folderId == 0, onClick = {
+                            folderId = 0
+                            folderIndex = allFolderIds.indexOf(folderId)
+                            scrollToFolder(folderIndex)
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "1", modifier = Modifier.size(16.dp))
+                            Text("Все чаты", modifier = Modifier.padding(start = 12.dp))
+                        }
                     }
 
-                    folders.forEach { folder ->
+                    items(folders) { folder ->
                         TopBarFolder(selected = folderId == folder.id, onClick = {
                             folderId = folder.id
                             folderIndex = allFolderIds.indexOf(folder.id)
+                            scrollToFolder(folderIndex)
                         }) {
                             Icon(folder.icon.icon, contentDescription = "Folder Icon", modifier = Modifier.size(16.dp))
                             Text(folder.name, modifier = Modifier.padding(start = 12.dp))
                         }
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(1.dp) // Минимальная высота, но можно настроить под ваш дизайн
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(1.dp)
+                                .padding(end = 8.dp)
+                        )
+                    }
+                }
+            }
+
+
+
+            if (chats.isEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().fillMaxHeight().weight(1f),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "Тут ничего нет \uD83D\uDC38",
+                        style = MaterialTheme.typography.headlineLarge,
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    )
+                    Text(
+                        "Добавьте чаты, используя кнопку ниже.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    Text(
+                        "Для добавления папки кликните на меню сверху",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+
+            else LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(top = 8.dp),
+            ) {
+                item {
+                    if (folderId == -1) {
+                        val stats = countStats(context)
+                        TaskStats(stats.done, stats.total)
+                    }
+                }
+
+                items(chats) { chat ->
+                    ChatItem(
+                        chat = chat,
+                        shareMode = shareMode,
+                        sharedText = sharedText,
+                        navController = navController,
+                        folderId = folderId
                     )
                 }
             }
         }
-    ) { padding ->
-
-        if (chats.isEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxWidth().fillMaxHeight(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    "Тут ничего нет \uD83D\uDC38",
-                    style = MaterialTheme.typography.headlineLarge,
-                    modifier = Modifier.padding(bottom = 24.dp)
-                )
-                Text(
-                    "Добавьте чаты, используя кнопку ниже.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-                Text(
-                    "Для добавления папки кликните на меню сверху",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-        }
-
-        else Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(top = 8.dp),
-        ) {
-            if (folderId == -1) {
-                val stats = countStats(context)
-                TaskStats(stats.done, stats.total)
-            }
 
 
-            chats.forEach { chat ->
-                ChatItem(
-                    chat = chat,
-                    shareMode = shareMode,
-                    sharedText = sharedText,
-                    navController = navController,
-                    folderId = folderId
-                )
-            }
-        }
+
+
+
+
     }
 }

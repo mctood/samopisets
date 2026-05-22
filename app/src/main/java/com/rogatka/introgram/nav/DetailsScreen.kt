@@ -53,6 +53,7 @@ fun DetailsScreen(navController: NavController, folderId: Int = 0) {
     val context = LocalContext.current
     val name = rememberSaveable { mutableStateOf("") }
     val imagePath = remember { mutableStateOf("") }
+    val exampleUID = randomUID()
     val coroutineScope = rememberCoroutineScope()
     var avatarLoading by remember { mutableStateOf(false) }
     var chatType by remember { mutableStateOf(ChatTypes.CLASSIC) }
@@ -124,7 +125,7 @@ fun DetailsScreen(navController: NavController, folderId: Int = 0) {
                         addChat(
                             context,
                             Chat(
-                                id = randomUID(),
+                                id = exampleUID,
                                 name = name.value,
                                 messages = mutableListOf(),
                                 imagePath = imagePath.value,
@@ -157,14 +158,23 @@ fun DetailsScreen(navController: NavController, folderId: Int = 0) {
                     modifier = Modifier.padding(bottom = 16.dp)
                 ) {
                     ChatAvatar(
-                        loading = avatarLoading,
-                        filename = imagePath.value,
-                        size = 60.dp,
+                        chat = Chat(
+                            id = exampleUID,
+                            name = name.value,
+                            messages = mutableListOf(),
+                            imagePath = imagePath.value,
+                            backgroundPath = null,
+                            type = chatType,
+                            folder = selectedFolder
+                        ),
                         modifier = Modifier
                             .clip(CircleShape)
                             .clickable {
                                 pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                            }
+                            },
+                        loading = avatarLoading,
+                        size = 60.dp,
+
                     )
                     OutlinedTextField(
                         value = name.value,

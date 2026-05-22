@@ -3,6 +3,7 @@ package com.rogatka.introgram
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Log
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Face
@@ -12,7 +13,9 @@ import androidx.compose.material.icons.filled.LocalFlorist
 import androidx.compose.material.icons.filled.SportsVolleyball
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Work
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import coil.imageLoader
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -34,6 +37,16 @@ val emptyFolders: String = gson.toJson(Folders(folders = mutableListOf()))
 val emptySettings: String = gson.toJson(Settings())
 fun randomUID(): Int {
     return (100000000..999999999).random()
+}
+
+val gradients = listOf(
+    listOf(Color(0xFFFFC871), Color(0xFFFF803B)),
+    listOf(Color(0xFF71FF7F), Color(0xFF1BAE24)),
+    listOf(Color(0xFF9ED7FF), Color(0xFF2344C8)),
+)
+
+fun getGradientByUID(uid: Int): List<Color> {
+    return gradients[uid % gradients.size]
 }
 
 suspend fun saveBitmapToFile(
@@ -115,17 +128,30 @@ fun loadBitmapFromFile(context: Context, filename: String?): Bitmap? {
     }
 }
 
-fun deleteImageFile(context: Context, filename: String?): Boolean {
-    if (filename == null) return false
-    val filepath = File(context.filesDir, filename).path
+fun deleteImageFile(
+    context: Context,
+    filename: String?
+): Boolean {
+    if (filename.isNullOrEmpty()) return false
+
     return try {
-        val file = File(filepath)
-        if (file.exists()) {
-            file.delete()
-        } else {
-            false
-        }
-    } catch (e: SecurityException) {
+        val file = File(context.filesDir, filename)
+
+        context.imageLoader.memoryCache?.clear()
+
+        val deleted = file.delete()
+
+        Log.e(
+            "DeleteImage",
+            "delete ${file.absolutePath}: $deleted"
+        )
+
+        deleted
+    } catch (e: Exception) {
+        Log.e(
+            "DeleteImage",
+            "err"
+        )
         e.printStackTrace()
         false
     }
@@ -414,7 +440,8 @@ fun countStats(context: Context): Stats {
 }
 
 data class Settings(
-    var showAllFolders: Boolean = true
+    var showAllFolders: Boolean = true,
+    var mainBackgroundPath: String? = null
 )
 
 fun getSettings(context: Context): Settings {
