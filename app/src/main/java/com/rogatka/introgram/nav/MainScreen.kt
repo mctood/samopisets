@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
@@ -81,6 +82,7 @@ import com.rogatka.introgram.randomUID
 import com.rogatka.introgram.saveBitmapToFile
 import com.rogatka.introgram.setSetting
 import com.rogatka.introgram.topBarColors
+import dev.chrisbanes.haze.haze
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -309,19 +311,25 @@ fun MainScreen(navController: NavController, folder: Int = 0) {
                         change.consume()
                     }
                 )
-            },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    navController.navigate("details/${folderId}")
-                },
-                content = {Icon(Icons.Default.Edit, contentDescription = "Edit")},
-                modifier = Modifier.padding(8.dp)
-            )
         },
-        topBar = {
+        floatingActionButton = {
+            Column(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .hazeEffect(hazeState)
+                    .background(MaterialTheme.colorScheme.surface.copy(0.7f))
+                    .clickable(onClick = {
+                        navController.navigate("details/${folderId}")
+                    }),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
 
-        }
+            ) {
+                Icon(Icons.Default.Edit, contentDescription = "Edit")
+            }
+        },
+        topBar = {}
     ) { padding ->
         Box(
             modifier = Modifier

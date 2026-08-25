@@ -122,6 +122,8 @@ fun DetailsScreen(navController: NavController, folderId: Int = 0) {
                 },
                 actions = {
                     IconButton(onClick = {
+                        if (name.value.isEmpty()) return@IconButton;
+
                         addChat(
                             context,
                             Chat(

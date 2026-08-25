@@ -431,15 +431,22 @@ data class Stats(
     val total: Int,
     val done: Int,
 )
-fun countStats(context: Context): Stats {
+fun countStats(context: Context, specialChat: Chat? = null): Stats {
     var total = 0
     var done = 0
 
-    val chats = getAllChats(context)
-    chats.filter { it.type == ChatTypes.TODO }.forEach { chat ->
-        val totalMessages = chat.messages.filter {!it.isSystem}
+    if (specialChat != null) {
+        val totalMessages = specialChat.messages.filter {!it.isSystem}
         total += totalMessages.size
         done += totalMessages.filter { it.done }.size
+    }
+    else {
+        val chats = getAllChats(context)
+        chats.filter { it.type == ChatTypes.TODO }.forEach { chat ->
+            val totalMessages = chat.messages.filter {!it.isSystem}
+            total += totalMessages.size
+            done += totalMessages.filter { it.done }.size
+        }
     }
 
     return Stats(

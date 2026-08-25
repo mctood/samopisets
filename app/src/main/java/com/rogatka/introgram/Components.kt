@@ -25,10 +25,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.ContentCopy
@@ -55,6 +58,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -67,10 +71,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
@@ -126,7 +133,7 @@ fun buildTextWithLinks(text: String): AnnotatedString {
 }
 
 @Composable
-fun TodoBadge(modifier: Modifier = Modifier) {
+fun TodoBadge(modifier: Modifier = Modifier, remaining: Int) {
     Box(
         modifier = modifier
             .size(18.dp) // Размер значка
@@ -134,8 +141,20 @@ fun TodoBadge(modifier: Modifier = Modifier) {
             .background(MaterialTheme.colorScheme.primary), // Цвет фона значка
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.Checklist,
+        if (remaining > 0) {
+            Text(
+                remaining.toString(),
+                color = MaterialTheme.colorScheme.onPrimary,
+                fontSize = 12.sp,
+                lineHeight = 12.sp,
+                textAlign = TextAlign.Center,
+                style = TextStyle(
+                    platformStyle = PlatformTextStyle(includeFontPadding = false)
+                )
+            )
+        }
+        else Icon(
+            imageVector = Icons.Default.Check,
             contentDescription = "Тип чата: Список дел",
             tint = MaterialTheme.colorScheme.onPrimary, // Цвет иконки
             modifier = Modifier.size(12.dp) // Размер иконки внутри значка
@@ -208,10 +227,14 @@ fun ChatAvatar(
         }
 
         if (chat.type == ChatTypes.TODO) {
+            val st = countStats(context, chat)
+            val remaining = st.total - st.done
+
             TodoBadge(
                 modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .offset(x = (-2).dp, y = (-2).dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = (2).dp, y = (2).dp),
+                remaining
             )
         }
     }
@@ -375,11 +398,14 @@ fun ChatItem(
         ) {
             ChatAvatar(chat = chat, size = 52.dp)
             Column(modifier = Modifier.padding(start = 10.dp)) {
-                Text(
-                    chat.name,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        chat.name,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                }
+
                 Text(
                     lastMessage,
                     overflow = TextOverflow.Ellipsis,
