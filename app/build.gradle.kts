@@ -74,4 +74,5 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("dev.chrisbanes.haze:haze:1.7.2")
 }

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.ImageNotSupported
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocalFlorist
 import androidx.compose.material.icons.filled.Menu
@@ -55,6 +56,9 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.rogatka.introgram.modals.ConfirmFolderDeleteModal
 import com.rogatka.introgram.modals.NewFolderModal
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import com.rogatka.introgram.Chat
 import com.rogatka.introgram.ChatItem
 import com.rogatka.introgram.ChatTypes
@@ -63,6 +67,7 @@ import com.rogatka.introgram.SharedContentHolder
 import com.rogatka.introgram.TaskStats
 import com.rogatka.introgram.addFolder
 import com.rogatka.introgram.countStats
+import com.rogatka.introgram.deleteAllBgImages
 import com.rogatka.introgram.deleteFolder
 import com.rogatka.introgram.deleteImageFile
 import com.rogatka.introgram.getAllChats
@@ -70,6 +75,7 @@ import com.rogatka.introgram.getAllFolders
 import com.rogatka.introgram.getSettings
 import com.rogatka.introgram.loadBitmapFromFile
 import com.rogatka.introgram.modals.AboutModal
+import com.rogatka.introgram.modals.ConfirmAllBackgroundsDeleteModal
 import com.rogatka.introgram.moveChatToFolder
 import com.rogatka.introgram.randomUID
 import com.rogatka.introgram.saveBitmapToFile
@@ -173,16 +179,16 @@ fun MainScreen(navController: NavController, folder: Int = 0) {
 
     val backgroundPath = remember { mutableStateOf(settings.mainBackgroundPath ?: "") }
     var bgLoading by remember { mutableStateOf(false) }
+    val hazeState = rememberHazeState()
 
     val pickBackground =
         rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
             if (uri != null) {
                 bgLoading = true
-                if (backgroundPath.value?.isNotEmpty() ?: false) {
+                if (backgroundPath.value.isNotEmpty()) {
                     coroutineScope.launch(Dispatchers.IO) {
                         deleteImageFile(context = context, filename = backgroundPath.value)
                     }
-                    backgroundPath.value = ""
                 }
                 coroutineScope.launch(Dispatchers.IO) {
                     try {
@@ -221,12 +227,26 @@ fun MainScreen(navController: NavController, folder: Int = 0) {
     }
 
     var expanded by remember { mutableStateOf(false) }
-    var showNewFolderDialog by remember { mutableStateOf(false) }
-    var showDeleteFolderDialog by remember { mutableStateOf(false) }
-    var showAboutModal by remember { mutableStateOf(false) }
+
 
 
     /** MODALS **/
+
+    var showNewFolderDialog by remember { mutableStateOf(false) }
+    var showDeleteFolderDialog by remember { mutableStateOf(false) }
+    var showAboutModal by remember { mutableStateOf(false) }
+    var showAllBackgroundsDeleteModal by remember { mutableStateOf(false) }
+
+
+    ConfirmAllBackgroundsDeleteModal(
+        show = showAllBackgroundsDeleteModal,
+        onDismiss = { showAllBackgroundsDeleteModal = false },
+        onConfirm = {
+            coroutineScope.launch(Dispatchers.IO) {
+                deleteAllBgImages(context = context)
+            }
+            showAllBackgroundsDeleteModal = false
+        })
 
     ConfirmFolderDeleteModal(
         show = showDeleteFolderDialog,
@@ -303,22 +323,33 @@ fun MainScreen(navController: NavController, folder: Int = 0) {
 
         }
     ) { padding ->
-        if (backgroundPath.value.isNotEmpty()) {
-            AsyncImage(
-                model = File(context.filesDir, backgroundPath.value),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .hazeSource(state = hazeState)
+        ) {
+            if (backgroundPath.value.isNotEmpty()) {
+                AsyncImage(
+                    model = File(context.filesDir, backgroundPath.value),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+                Box(
+                    modifier = Modifier.fillMaxSize().background(Color(0x55000000))
+                )
+            }
         }
 
-        if (backgroundPath.value.isNotEmpty())
-            Box(
-                modifier = Modifier.fillMaxSize().background(Color(0x55000000))
-            ) {}
-
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .hazeEffect(state = hazeState)
+            ) {
                 CenterAlignedTopAppBar(
                     colors = topBarColors(),
                     title = {
@@ -413,6 +444,14 @@ fun MainScreen(navController: NavController, folder: Int = 0) {
                                 })
 
                             HorizontalDivider()
+                            DropdownMenuItem(text = { Text("Удалить все фоны") }, leadingIcon = {
+                                Icon(
+                                    Icons.Default.ImageNotSupported, contentDescription = "Удалить все фоны"
+                                )
+                            }, onClick = {
+                                expanded = false
+                                showAllBackgroundsDeleteModal = true
+                            })
                             DropdownMenuItem(text = { Text("О программе") }, leadingIcon = {
                                 Icon(
                                     Icons.Default.Info, contentDescription = "О программе"

@@ -71,6 +71,7 @@ import com.rogatka.introgram.Message
 import com.rogatka.introgram.MessageBox
 import com.rogatka.introgram.R
 import com.rogatka.introgram.SystemMessageBox
+import com.rogatka.introgram.TiledImageBackground
 import com.rogatka.introgram.TodoItemBox
 import com.rogatka.introgram.changeChatBackground
 import com.rogatka.introgram.changeChatPhoto
@@ -84,6 +85,7 @@ import com.rogatka.introgram.editMessage
 import com.rogatka.introgram.getAllChatMessages
 import com.rogatka.introgram.getChatByID
 import com.rogatka.introgram.loadBitmapFromFile
+import com.rogatka.introgram.modals.ConfirmAllBackgroundsDeleteModal
 import com.rogatka.introgram.modals.ConfirmChatDeleteModal
 import com.rogatka.introgram.modals.EditChatNameModal
 import com.rogatka.introgram.modals.EditMessageModal
@@ -315,123 +317,126 @@ fun ChatScreen(chatId: Int, navController: NavController, folderToReturn: Int = 
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                colors = topBarColors(),
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        ChatAvatar(chat = chat, imagePath = imagePath.value, size = 36.dp, loading = avatarLoading)
-                        Text(
-                            chatName,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(12.dp)
-                        )
-                    }
 
-                },
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigate("main/${folderToReturn}") }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                },
-                actions = {
-                    if (bgLoading) {
-                        CircularProgressIndicator()
-                    }
-                    IconButton(onClick = { expanded = !expanded }) {
-                        Icon(
-                            imageVector = Icons.Default.Menu, contentDescription = "Menu"
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = expanded, onDismissRequest = {
-                            expanded = false
-                            focusRequester.freeFocus()
-                        }) {
-                        DropdownMenuItem(text = { Text("Сменить название") }, leadingIcon = {
-                            Icon(
-                                Icons.Default.Edit, contentDescription = "Переименовать"
-                            )
-                        }, onClick = {
-                            expanded = false
-                            showEditNameDialog = true
-                        })
-                        DropdownMenuItem(text = { Text("Сменить картинку") }, leadingIcon = {
-                            Icon(
-                                Icons.Default.Photo, contentDescription = "Сменить картинку"
-                            )
-                        }, onClick = {
-                            expanded = false
-                            pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        })
-                        DropdownMenuItem(
-                            text = { Text("Установить фон") },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.LocalFlorist,
-                                    contentDescription = "Установить фон"
-                                )
-                            },
-                            onClick = {
-                                expanded = false
-                                pickBackground.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Выбрать папку") },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.Folder,
-                                    contentDescription = "Выбрать папку"
-                                )
-                            },
-                            onClick = {
-                                expanded = false
-                                showMoveToFolderDialog = true
-                            },
-                        )
-                        HorizontalDivider()
-                        DropdownMenuItem(text = { Text("Удалить чат") }, leadingIcon = {
-                            Icon(
-                                Icons.Default.Delete, contentDescription = "Удалить"
-                            )
-                        }, onClick = {
-                            expanded = false
-                            showConfirmDeleteDialog = true
-                        })
-                    }
-                },
-            )
         },
         bottomBar = {
             Row(modifier = Modifier.imePadding().fillMaxWidth().navigationBarsPadding()) {}
         }) { padding ->
-        Column(
+
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-            ) {
+            if (backgroundPath.value.isNotEmpty()) {
                 AsyncImage(
-                    model = if (backgroundPath.value.isNotEmpty())
-                        File(context.filesDir, backgroundPath.value)
-                    else
-                        R.drawable.default_bg,
-
+                    model = File(context.filesDir, backgroundPath.value),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
+            } else {
+                TiledImageBackground()
+            }
 
-                Column(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                TopAppBar(
+                    colors = topBarColors(),
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            ChatAvatar(chat = chat, imagePath = imagePath.value, size = 36.dp, loading = avatarLoading)
+                            Text(
+                                chatName,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
+
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.navigate("main/${folderToReturn}") }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back"
+                            )
+                        }
+                    },
+                    actions = {
+                        if (bgLoading) {
+                            CircularProgressIndicator()
+                        }
+                        IconButton(onClick = { expanded = !expanded }) {
+                            Icon(
+                                imageVector = Icons.Default.Menu, contentDescription = "Menu"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = expanded, onDismissRequest = {
+                                expanded = false
+                                focusRequester.freeFocus()
+                            }) {
+                            DropdownMenuItem(text = { Text("Сменить название") }, leadingIcon = {
+                                Icon(
+                                    Icons.Default.Edit, contentDescription = "Переименовать"
+                                )
+                            }, onClick = {
+                                expanded = false
+                                showEditNameDialog = true
+                            })
+                            DropdownMenuItem(text = { Text("Сменить картинку") }, leadingIcon = {
+                                Icon(
+                                    Icons.Default.Photo, contentDescription = "Сменить картинку"
+                                )
+                            }, onClick = {
+                                expanded = false
+                                pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            })
+                            DropdownMenuItem(
+                                text = { Text("Установить фон") },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.LocalFlorist,
+                                        contentDescription = "Установить фон"
+                                    )
+                                },
+                                onClick = {
+                                    expanded = false
+                                    pickBackground.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Выбрать папку") },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Folder,
+                                        contentDescription = "Выбрать папку"
+                                    )
+                                },
+                                onClick = {
+                                    expanded = false
+                                    showMoveToFolderDialog = true
+                                },
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(text = { Text("Удалить чат") }, leadingIcon = {
+                                Icon(
+                                    Icons.Default.Delete, contentDescription = "Удалить"
+                                )
+                            }, onClick = {
+                                expanded = false
+                                showConfirmDeleteDialog = true
+                            })
+                        }
+                    },
+                )
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) {
                     val horizontalPadding = if (chat.type == ChatTypes.CLASSIC) 8.dp else 12.dp
 
                     LazyColumn(
@@ -488,7 +493,8 @@ fun ChatScreen(chatId: Int, navController: NavController, folderToReturn: Int = 
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 12.dp),
+                            .imePadding()
+                            .padding(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 20.dp),
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {

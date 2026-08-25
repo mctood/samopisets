@@ -141,20 +141,29 @@ fun deleteImageFile(
 
         val deleted = file.delete()
 
-        Log.e(
-            "DeleteImage",
-            "delete ${file.absolutePath}: $deleted"
-        )
+        Log.d("DeleteImage", "delete ${file.absolutePath}: $deleted")
 
         deleted
     } catch (e: Exception) {
-        Log.e(
-            "DeleteImage",
-            "err"
-        )
+        Log.e("DeleteImage", "err")
         e.printStackTrace()
         false
     }
+}
+
+fun deleteAllBgImages(context: Context) {
+    context.imageLoader.memoryCache?.clear()
+
+    context.filesDir.listFiles()
+        ?.filter { it.isFile && it.name.endsWith(".bg.png") }
+        ?.forEach { file ->
+            Log.d("DeleteImage", "delete ${file.absolutePath}: ${file.delete()}")
+        }
+
+    getAllChats(context)
+        .forEach { chat ->
+            changeChatBackground(context, chat, "")
+        }
 }
 
 

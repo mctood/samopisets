@@ -6,6 +6,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -57,6 +58,9 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageShader
+import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -73,9 +77,14 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.scale
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
+import coil.size.Size
 import java.io.File
 
 
@@ -455,7 +464,8 @@ fun TaskStats(
             .clip(RoundedCornerShape(8.dp))
             .padding(16.dp),
         shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer
+        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.66f),
+        border = BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.outline),
     ) {
         Column(
             modifier = Modifier
@@ -540,6 +550,49 @@ fun topBarColors(): TopAppBarColors {
     return TopAppBarDefaults.topAppBarColors(
         containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.66f),
         titleContentColor = MaterialTheme.colorScheme.onSurface,
+    )
+}
+
+
+@Composable
+fun TiledImageBackground(
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+
+    // Загружаем картинку через Coil в виде Painter
+    val painter = rememberAsyncImagePainter(
+        model = ImageRequest.Builder(context)
+            .data(R.drawable.default_bg)
+            .size(Size.ORIGINAL) // Загружаем в оригинальном размере для четких плиток
+            .build()
+    )
+
+    // Получаем Bitmap из состояния загруженного Painter
+    val state = painter.state
+    val imageBitmap = (state as? AsyncImagePainter.State.Success)?.result?.drawable?.toBitmap()
+
+    // Создаем кисть с паттерном (повторение по X и Y)
+    val tiledBrush = remember(imageBitmap) {
+        imageBitmap?.let { bitmap ->
+            ShaderBrush(
+                ImageShader(
+                    image = bitmap.asImageBitmap(),
+                    tileModeX = TileMode.Repeated, // Аналог repeat-x
+                    tileModeY = TileMode.Repeated  // Аналог repeat-y
+                )
+            )
+        }
+    }
+
+    // Применяем кисть в фоновый модификатор
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .then(
+                if (tiledBrush != null) Modifier.background(tiledBrush)
+                else Modifier
+            )
     )
 }
 
