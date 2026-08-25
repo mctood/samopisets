@@ -64,6 +64,9 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.rogatka.introgram.modals.MoveToFolderModal
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import com.rogatka.introgram.ChatAvatar
 import com.rogatka.introgram.ChatTypes
 import com.rogatka.introgram.ExpandingBottomBar
@@ -124,6 +127,7 @@ fun ChatScreen(chatId: Int, navController: NavController, folderToReturn: Int = 
     var expanded by remember { mutableStateOf(false) }
     val imagePath = remember { mutableStateOf(chat.imagePath) }
     val backgroundPath = remember { mutableStateOf(chat.backgroundPath ?: "") }
+    val hazeState = rememberHazeState()
 
     var avatarLoading by remember { mutableStateOf(false) }
     var bgLoading by remember { mutableStateOf(false) }
@@ -327,19 +331,26 @@ fun ChatScreen(chatId: Int, navController: NavController, folderToReturn: Int = 
             modifier = Modifier
                 .fillMaxSize()
         ) {
-            if (backgroundPath.value.isNotEmpty()) {
-                AsyncImage(
-                    model = File(context.filesDir, backgroundPath.value),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                TiledImageBackground()
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .hazeSource(state = hazeState)
+            ) {
+                if (backgroundPath.value.isNotEmpty()) {
+                    AsyncImage(
+                        model = File(context.filesDir, backgroundPath.value),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    TiledImageBackground()
+                }
             }
 
             Column(modifier = Modifier.fillMaxSize()) {
                 TopAppBar(
+                    modifier = Modifier.hazeEffect(state = hazeState),
                     colors = topBarColors(),
                     title = {
                         Row(
@@ -513,7 +524,8 @@ fun ChatScreen(chatId: Int, navController: NavController, folderToReturn: Int = 
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(24.dp))
-                                .background(MaterialTheme.colorScheme.surface)
+                                .hazeEffect(state = hazeState)
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
 
                             textStyle = textStyle,
@@ -544,11 +556,13 @@ fun ChatScreen(chatId: Int, navController: NavController, folderToReturn: Int = 
                         Row(
                             modifier = Modifier
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surface),
-
                             ) {
                             IconButton(
-                                modifier = Modifier.size(42.dp).padding(4.dp),
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .padding(4.dp)
+                                    .hazeEffect(state = hazeState)
+                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
                                 onClick = {
                                     if (messageText.isNotBlank()) {
                                         sendMessage()

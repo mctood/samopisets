@@ -554,7 +554,7 @@ fun MainScreen(navController: NavController, folder: Int = 0) {
                 item {
                     if (folderId == -1) {
                         val stats = countStats(context)
-                        TaskStats(stats.done, stats.total)
+                        TaskStats(stats.done, stats.total, hazeState)
                     }
                 }
 

@@ -85,6 +85,8 @@ import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import coil.size.Size
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
 import java.io.File
 
 
@@ -456,21 +458,21 @@ fun TodoItemBox(
 fun TaskStats(
     done: Int,
     total: Int,
+    hazeState: HazeState,
     modifier: Modifier = Modifier
 ) {
     Surface(
         Modifier
             .padding(bottom = 16.dp)
-            .clip(RoundedCornerShape(8.dp))
             .padding(16.dp),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.66f),
-        border = BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.outline),
+        shape = RoundedCornerShape(16.dp),
     ) {
         Column(
             modifier = Modifier
                 .clip(RoundedCornerShape(16.dp))
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .hazeEffect(state = hazeState)
+                .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.6f)),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
