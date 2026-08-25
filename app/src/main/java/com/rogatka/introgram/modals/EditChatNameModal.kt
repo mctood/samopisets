@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import com.rogatka.introgram.Chat
+import com.rogatka.introgram.singleLineChatName
 
 @Composable
 fun EditChatNameModal(
@@ -23,7 +24,7 @@ fun EditChatNameModal(
     onConfirm: (newChatName: String) -> Unit
 ) {
     if (chat == null) return
-    var newChatName by remember { mutableStateOf(chat.name) }
+    var newChatName by remember { mutableStateOf(chat.name.singleLineChatName()) }
 
     if (show) {
         AlertDialog(
@@ -32,7 +33,7 @@ fun EditChatNameModal(
             text = {
                 OutlinedTextField(
                     value = newChatName,
-                    onValueChange = { newChatName = it },
+                    onValueChange = { newChatName = it.singleLineChatName() },
                     placeholder = { Text("Введите название...") },
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
@@ -43,7 +44,7 @@ fun EditChatNameModal(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {onConfirm(newChatName)}) {
+                TextButton(onClick = { onConfirm(newChatName.singleLineChatName()) }) {
                     Text("Переименовать")
                 }
             },

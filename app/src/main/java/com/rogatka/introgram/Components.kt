@@ -132,6 +132,9 @@ fun buildTextWithLinks(text: String): AnnotatedString {
     }
 }
 
+fun String.singleLineChatName(): String =
+    replace("\r", " ").replace("\n", " ").trim()
+
 @Composable
 fun TodoBadge(modifier: Modifier = Modifier, remaining: Int) {
     Box(
@@ -400,7 +403,7 @@ fun ChatItem(
             Column(modifier = Modifier.padding(start = 10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        chat.name,
+                        chat.name.singleLineChatName(),
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp
                     )

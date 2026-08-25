@@ -39,6 +39,7 @@ import com.rogatka.introgram.deleteImageFile
 import com.rogatka.introgram.getAllFolders
 import com.rogatka.introgram.resizeToCover
 import com.rogatka.introgram.saveBitmapToFile
+import com.rogatka.introgram.singleLineChatName
 import com.rogatka.introgram.topBarColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -128,7 +129,7 @@ fun DetailsScreen(navController: NavController, folderId: Int = 0) {
                             context,
                             Chat(
                                 id = exampleUID,
-                                name = name.value,
+                                name = name.value.singleLineChatName(),
                                 messages = mutableListOf(),
                                 imagePath = imagePath.value,
                                 backgroundPath = null,
@@ -180,8 +181,10 @@ fun DetailsScreen(navController: NavController, folderId: Int = 0) {
                     )
                     OutlinedTextField(
                         value = name.value,
+                        singleLine = true,
+                        maxLines = 1,
                         placeholder = {Text("Название чата")},
-                        onValueChange = { name.value = it }, modifier = Modifier
+                        onValueChange = { name.value = it.singleLineChatName() }, modifier = Modifier
                             .fillMaxWidth()
                             .padding(start = 10.dp)
                             .background(Color.Transparent),
@@ -219,6 +222,7 @@ fun DetailsScreen(navController: NavController, folderId: Int = 0) {
                         onValueChange = {}, // onValueChange здесь не нужен, т.к. выбор через меню
                         readOnly = true, // Делаем текстовое поле только для чтения
                         label = { Text("Выберите папку") },
+
                         trailingIcon = {
                             ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedFolderSelect)
                         },

@@ -99,6 +99,7 @@ import com.rogatka.introgram.removeMessage
 import com.rogatka.introgram.renameChat
 import com.rogatka.introgram.resizeToCover
 import com.rogatka.introgram.saveBitmapToFile
+import com.rogatka.introgram.singleLineChatName
 import com.rogatka.introgram.topBarColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -115,7 +116,7 @@ fun ChatScreen(chatId: Int, navController: NavController, folderToReturn: Int = 
         navController.navigate("main/0")
         return
     }
-    var chatName by remember {mutableStateOf(chat.name)}
+    var chatName by remember { mutableStateOf(chat.name.singleLineChatName()) }
     var messageMutable by remember {mutableIntStateOf(message)}
     val messages = remember {
         getAllChatMessages(context = context, chatId = chatId)?.toMutableStateList()
@@ -250,8 +251,8 @@ fun ChatScreen(chatId: Int, navController: NavController, folderToReturn: Int = 
         onDismiss = { showEditNameDialog = false },
         chat = chat,
         onConfirm = { newChatName ->
-            chatName = newChatName
-            renameChat(context, newChatName, chat)
+            chatName = newChatName.singleLineChatName()
+            renameChat(context, chatName, chat)
             showEditNameDialog = false
         })
 
